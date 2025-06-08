@@ -5,11 +5,31 @@ from sklearn.linear_model import LinearRegression, Lasso, Ridge, ElasticNet
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.base import clone
+from sklearn.preprocessing import StandardScaler
 
-def load_data(file_path, target_column):
-    df = pd.read_csv(file_path)
+
+def load_data(file_path, target_column, sep=','):
+    df = pd.read_csv(file_path, sep=sep)
+
+    if target_column not in df.columns:
+        raise ValueError()
+
     X = df.drop(columns=[target_column])
-    y = df[target_column]
+    y = df[target_column]\
+
+    categorical_cols = X.select_dtypes(exclude=[np.number]).columns.tolist()
+
+    if len(categorical_cols) > 0:
+        X = pd.get_dummies(X, columns=categorical_cols, drop_first=True)
+
+    nan_count = X.isnull().sum().sum()
+    if nan_count > 0:
+        X = X.fillna(X.mean())
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    X = pd.DataFrame(X_scaled, columns=X.columns, index=X.index)
+
     return X, y
 
 def statp_attack(X, y, epsilon=0.1, rounding=True):
@@ -69,11 +89,11 @@ datasets = {
     'datasets/pharm-preproc.csv': 'TherapeuticDoseofWarfarin'
 }
 
-poisoning_rates = [0.0, 0.04, 0.08, 0.12, 0.16, 0.2]
+poisoning_rates = [i/50 for i in range(11)]
 
 for dataset_path, target_column in datasets.items():
     print(f"\nPrzetwarzanie: {dataset_path}")
-    X, y = load_data(dataset_path, target_column)
+    X, y = load_data(dataset_path, target_column, sep=',')
     X_train, X_test, y_train, y_test = train_test_split(X.values, y.values, test_size=0.2, random_state=42)
 
     fig, axs = plt.subplots(2, 2, figsize=(14, 10))
