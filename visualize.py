@@ -210,6 +210,7 @@ def main():
 
     df = pd.read_csv(args.csv_file)
 
+    # MSE plots for all models (attacks, datasets, defenses)
     plot_and_save_all_models_per_dataset(args.csv_file, save_dir="visualisations_mse")
     models_to_plot = ['linearregression', 'ridge', 'elasticnet', 'lasso']
 

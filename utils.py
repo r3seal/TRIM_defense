@@ -19,6 +19,7 @@ def timeit(func):
             return result, elapsed
     return wrapper
 
+# load data
 def load_data(file_path, target_column, n_samples=None):
     df = pd.read_csv(file_path)
     if n_samples is not None:
@@ -53,6 +54,7 @@ def load_data_and_preprocess(file_path, target_column, sep=',', n_samples=None):
 
     return X, y
 
+# get number of cpu core
 def get_cpu_core():
     if platform.system() == 'Windows':
         try:
@@ -69,6 +71,7 @@ def get_cpu_core():
         except AttributeError:
             return "Unknown"
 
+# get number of cpu core and cpu model
 def get_cpu_info():
     cpu_core = get_cpu_core()
 

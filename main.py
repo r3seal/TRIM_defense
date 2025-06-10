@@ -17,11 +17,12 @@ from attack import optp_attack, statp_attack
 from utils import get_cpu_info, load_data, load_data_and_preprocess
 
 
+# main testing function
 def evaluate_poisoning_rate(args):
     attack_name, attack_func, model_proto, epsilon, dataset_path, target_column, min_len, begin_time, ifprocessed = args
     process_start_time =  time.time()
 
-    # Load data fresh here inside each process to avoid memory sharing issues:
+    # Load data
     if ifprocessed:
         X, y = load_data(dataset_path, target_column, n_samples=min_len)
     else:
@@ -42,7 +43,7 @@ def evaluate_poisoning_rate(args):
     else:
         raise ValueError(f"Unknown attack: {attack_name}")
 
-    # Clean model mse and timing
+    # Clean model
     fit_time_clean = pred_time_clean = None
     if epsilon == 0.0:
         start = time.time()
@@ -57,7 +58,7 @@ def evaluate_poisoning_rate(args):
     else:
         mse_clean = None
 
-    # Poisoned model mse and timing
+    # Poisoned model
     model_poisoned = clone(model_proto)
     start = time.time()
     model_poisoned.fit(X_train_poisoned, y_train_poisoned)
@@ -69,7 +70,7 @@ def evaluate_poisoning_rate(args):
 
     mse_poisoned = mean_squared_error(y_test, y_pred_poisoned)
 
-    # Trim regression timing
+    # Trim regression
     start = time.time()
     defended_model_trim = trim_regression(X_train_poisoned, y_train_poisoned, model_proto, epsilon=epsilon)
     fit_time_trim = time.time() - start
@@ -80,7 +81,7 @@ def evaluate_poisoning_rate(args):
 
     mse_trim = mean_squared_error(y_test, y_pred_trim)
 
-    # RANSAC regression timing
+    # RANSAC regression
     start = time.time()
     defended_model_ransac = ransac_regression(X_train_poisoned, y_train_poisoned, base_model=model_proto)
     fit_time_ransac = time.time() - start
@@ -107,10 +108,10 @@ def evaluate_poisoning_rate(args):
     cpu_core, cpu_model = get_cpu_info()
 
     process_end_time = time.time()
-
     process_start_time_string = str(timedelta(seconds=process_start_time - begin_time))
     process_end_time_string = str(timedelta(seconds=process_end_time - begin_time))
 
+    # string for logging progress
     log_string = (f"process start time: {process_start_time_string}, "
                   f"process end time: {process_end_time_string}, "
                   f"attack time: {attack_time}, "
@@ -149,11 +150,9 @@ def evaluate_poisoning_rate(args):
         'cpu_model': cpu_model
     }, log_string
 
-def evaluate_wrapper(task_args, counter, total_count, lock):
+# wrapper
+def evaluate_wrapper(task_args, total_count):
     task_id, attack_name, attack_func, model_proto, epsilon, dataset_path, target_column, min_len, begin_time, ifprocessed = task_args
-    with lock:
-        counter.value += 1
-        current_count = counter.value
     result, log_string = evaluate_poisoning_rate(
         (attack_name, attack_func, model_proto, epsilon, dataset_path, target_column, min_len, begin_time, ifprocessed)
     )
@@ -164,6 +163,7 @@ def evaluate_wrapper(task_args, counter, total_count, lock):
 
 
 if __name__ == '__main__':
+    # models for experiments
     models = {
         'OLS': LinearRegression(),
         'LASSO': Lasso(alpha=0.1),
@@ -171,6 +171,7 @@ if __name__ == '__main__':
         'ElasticNet': ElasticNet(alpha=0.1, l1_ratio=0.5)
     }
 
+    # datasets for experiments (path: [targeted value, if already processed])
     datasets = {
         'datasets/house-processed.csv': ['SalePrice', True],
         'datasets/loan-processed.csv': ['int_rate', True],
@@ -180,14 +181,17 @@ if __name__ == '__main__':
         'datasets/Taxi_Trip_Data_preprocessed.csv': ['fare_amount', False]
     }
 
+    # find the minimum dataset length
     min_len = float('inf')
     for path, _ in datasets.items():
         df = pd.read_csv(path)
         min_len = min(min_len, len(df))
     print(f"Minimum dataset length: {min_len}")
 
+    # poisoning rates
     poisoning_rates = [0.03 * i for i in range(8)]
 
+    # attacks
     attacks = {
         'StatP': statp_attack,
         'OPTP': optp_attack
@@ -208,13 +212,11 @@ if __name__ == '__main__':
     print(f"Total experiments to run: {len(all_args)}")
 
     # Use multiprocessing to evaluate all experiments in parallel
-    print(mp.cpu_count())
+    print(f"Total number of cpu's: {mp.cpu_count()}")
 
     with mp.Manager() as manager:
-        counter = manager.Value('i', 0)
-        lock = manager.Lock()
         with mp.Pool(processes=mp.cpu_count()) as pool:
-            outputs = pool.starmap(evaluate_wrapper, [(arg, counter, len(all_args), lock) for arg in all_args])
+            outputs = pool.starmap(evaluate_wrapper, [(arg, len(all_args)) for arg in all_args])
 
     results = []
     log_rows = []

@@ -5,6 +5,7 @@ from scipy.optimize import minimize
 from utils import timeit
 
 
+# OPTP attack
 @timeit
 def optp_attack(X_train, y_train, X_val, y_val, epsilon=0.1, max_iter=3, base_model=None):
     n_poison = int(epsilon * len(X_train))
@@ -53,6 +54,7 @@ def optp_attack(X_train, y_train, X_val, y_val, epsilon=0.1, max_iter=3, base_mo
     return X_poisoned, y_poisoned
 
 
+# STATP attack
 @timeit
 def statp_attack(X, y, epsilon=0.1, rounding=True):
     n_samples = int(epsilon * len(X))
