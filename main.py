@@ -72,7 +72,7 @@ def evaluate_poisoning_rate(args):
 
     # Trim regression
     start = time.time()
-    defended_model_trim = trim_regression(X_train_poisoned, y_train_poisoned, model_proto, epsilon=epsilon)
+    defended_model_trim = trim_regression(X_train_poisoned, y_train_poisoned, model_proto)
     fit_time_trim = time.time() - start
 
     start = time.time()
