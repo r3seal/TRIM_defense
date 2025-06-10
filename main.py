@@ -17,7 +17,7 @@ from attack import optp_attack, statp_attack
 from utils import get_cpu_info, load_data, load_data_and_preprocess
 
 
-def evaluate_poisoning_rate(args, current_count, total_count):
+def evaluate_poisoning_rate(args):
     attack_name, attack_func, model_proto, epsilon, dataset_path, target_column, min_len, begin_time, ifprocessed = args
     process_start_time =  time.time()
 
@@ -41,18 +41,6 @@ def evaluate_poisoning_rate(args, current_count, total_count):
             X_train, y_train, X_val, y_val, epsilon=epsilon, base_model=model)
     else:
         raise ValueError(f"Unknown attack: {attack_name}")
-
-    # Save poisoned X and y to file
-    poisoned_dir = "poisoned_data"
-    os.makedirs(poisoned_dir, exist_ok=True)
-
-    dataset_name = os.path.splitext(os.path.basename(dataset_path))[0]
-    model_name = type(model_proto).__name__
-    filename = f"{dataset_name}-{attack_name}-{model_name}-eps{epsilon:.2f}.csv"
-
-    df_poisoned = pd.DataFrame(X_train_poisoned, columns=X.columns)
-    df_poisoned['target'] = y_train_poisoned
-    df_poisoned.to_csv(os.path.join(poisoned_dir, filename), index=False)
 
     # Clean model mse and timing
     fit_time_clean = pred_time_clean = None
@@ -83,7 +71,7 @@ def evaluate_poisoning_rate(args, current_count, total_count):
 
     # Trim regression timing
     start = time.time()
-    defended_model_trim = trim_regression(X_train_poisoned, y_train_poisoned, model_proto, keep_ratio=0.9)
+    defended_model_trim = trim_regression(X_train_poisoned, y_train_poisoned, model_proto, epsilon=epsilon)
     fit_time_trim = time.time() - start
 
     start = time.time()
@@ -167,9 +155,7 @@ def evaluate_wrapper(task_args, counter, total_count, lock):
         counter.value += 1
         current_count = counter.value
     result, log_string = evaluate_poisoning_rate(
-        (attack_name, attack_func, model_proto, epsilon, dataset_path, target_column, min_len, begin_time, ifprocessed),
-        current_count,
-        total_count
+        (attack_name, attack_func, model_proto, epsilon, dataset_path, target_column, min_len, begin_time, ifprocessed)
     )
     return_log_string = f"end of task_id: {task_id} out of {total_count} | " + log_string
     print(return_log_string)
@@ -190,7 +176,8 @@ if __name__ == '__main__':
         'datasets/loan-processed.csv': ['int_rate', True],
         'datasets/pharm-preproc.csv': ['TherapeuticDoseofWarfarin', True],
         'datasets/housing.csv': ['housing_median_age', False],
-        'datasets/creditcard.csv': ['Amount', False]
+        'datasets/creditcard.csv': ['Amount', False],
+        'datasets/Taxi_Trip_Data_preprocessed.csv': ['fare_amount', False]
     }
 
     min_len = float('inf')
